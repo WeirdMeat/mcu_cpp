@@ -4,114 +4,160 @@
 #include <limits>
 #include <string>
 
+struct str {
+    int len;
+    char *ptr;
+
+    str () {
+        len = 1;
+        ptr = new char[1];
+        *ptr = '\0';
+    }
+
+    str (const char* s) {
+        auto it = s;
+        for (; *it != '\0'; it++) {}
+        len = it - s + 1;
+        ptr = new char[len];
+        std::copy(s, s + len, ptr);
+        //std::cout << ptr << '\n';
+    }
+
+    operator std::string() {
+        return ptr;
+    }
+
+    void del() {
+        delete [] ptr;
+    }
+
+    str operator+=(const str& sr) {
+
+        char* t = new char[sr.len + len - 1];
+        std::copy(ptr, ptr + len - 1, t);
+        std::copy(sr.ptr, sr.ptr + sr.len, t + len - 1);
+        delete [] ptr;
+        ptr = t;
+        len = len + sr.len - 1;
+
+        return *this;
+    }
+
+    friend str operator+(str lhs, const str& rhs) {
+        lhs += rhs;
+        return lhs;
+    }
+
+    const char operator[](int ind) const {
+        return *(ptr + ind);
+    }
+
+    char& operator[](int ind) {
+       return *(ptr + ind);
+   }
+
+    ~str () {
+        delete [] ptr;
+    }
+
+
+};
+
 class String
 {
 public:
-    struct pimp {
-        char *ptr;
-        int *ref;
-        int len;
-    } *buf = nullptr;
+    struct sh_ptr {
+        int ref;
+        str* s;
+    } *ptr;
 
     String () {
-        buf = new pimp;
-        buf->ptr = new char('\0');
-        buf->ref = new int(1);
-        buf->len = 1;
+        ptr = new sh_ptr;
+        ptr->ref = 1;
+        ptr->s = new str("\0");
     }
 
-    String (const char* s) {
-        buf = new pimp;
-        auto it = s;
-        for (; *it != '\0'; it++) {}
-        buf->len = it - s + 1;
-        buf->ptr = new char[buf->len];
-        std::copy(s, s + buf->len, buf->ptr);
-        buf->ref = new int(1);
-
+    String (const char* a) {
+        ptr = new sh_ptr;
+        ptr->ref = 1;
+        std::cout << std::string(str(a)) << '\n';
+        ptr->s = new str(a);
+        std::cout << ptr->s->ptr << '\n';
     }
 
     String (const String& a) {
-        buf = new pimp;
-        buf->ptr = a.buf->ptr;
-        (*a.buf->ref)++;
-        buf->ref = a.buf->ref;
-        buf->len = a.buf->len;
-
+        ptr = a.ptr;
+        ptr->ref++;
     }
 
     String& operator=(const String& a) {
-        if (buf->ptr == a.buf->ptr) {
+        if (ptr == a.ptr) {
             return *this;
         }
-        del (this);
-        buf = nullptr;
 
-        buf = new pimp;
-        buf->ptr = a.buf->ptr;
-        (*a.buf->ref)++;
-        buf->ref = a.buf->ref;
-        buf->len = a.buf->len;
+        del (this);
+        ptr = nullptr;
+
+        ptr = a.ptr;
+        ptr->ref++;
 
         return *this;
     }
 
     String (String&& a) {
         del(this);
-        buf = a.buf;
-        a.buf = nullptr;
+        ptr = a.ptr;
+        a.ptr = nullptr;
     }
 
     String& operator=(String&& a) {
         del(this);
-        buf = a.buf;
-        a.buf = nullptr;
+        ptr = a.ptr;
+        a.ptr = nullptr;
         return *this;
     }
 
     void del(const String* a) {
-        if (a->buf == nullptr) return;
-        (*a->buf->ref)--;
-        if (*a->buf->ref == 0) {
-            delete a->buf->ref;
-            delete [] a->buf->ptr;
+        if (a->ptr == nullptr) return;
+        a->ptr->ref--;
+        if (a->ptr->ref == 0) {
+            (*a->ptr->s).del();
+            delete a->ptr->s;
+            delete a->ptr;
         }
-        delete a->buf;
     }
 
     String operator+=(const String& sr) {
 
-        String t = std::move(*this);
+        str sn = *ptr->s + *sr.ptr->s;
 
-        this->buf = new pimp;
-        this->buf->len = t.buf->len + sr.buf->len - 1;
-        this->buf->ptr = new char[this->buf->len];
-        std::copy(t.buf->ptr, t.buf->ptr + t.buf->len - 1, this->buf->ptr);
-        std::copy(sr.buf->ptr, sr.buf->ptr + sr.buf->len, this->buf->ptr + t.buf->len - 1);
-        this->buf->ref = new int(1);
+        del(this);
+        ptr = new sh_ptr;
+        ptr->ref = 1;
+        ptr->s = &sn;
 
         return *this;
     }
 
     const char operator[](int ind) const {
-        return *(this->buf->ptr + ind);
+        return (*ptr->s)[ind];
     }
 
     char& operator[](int ind) {
 
-        String t = std::move(*this);
+        str sn = *ptr->s;
 
-        this->buf = new pimp;
-        this->buf->len = t.buf->len;
-        this->buf->ptr = new char[this->buf->len];
-        std::copy(t.buf->ptr, t.buf->ptr + t.buf->len, this->buf->ptr);
-        this->buf->ref = new int(1);
+        del(this);
+        ptr = new sh_ptr;
+        ptr->ref = 1;
+        ptr->s = &sn;
 
-        return *(this->buf->ptr + ind);
+        return (*ptr->s)[ind];
     }
 
     operator std::string() {
-        return buf->ptr;
+        std::cout << ptr->s->ptr << '\n';
+        return std::string(*ptr->s);
     }
 
     ~String() {
@@ -119,23 +165,13 @@ public:
     }
 };
 
-
 int main(int argc, char const *argv[]) {
-    String s, s2 = "123";
-    s = "abc";
-std::cout << "tf" << '\n';
-    String s1 = s2;
-    std::cout << std::string(s1) << std::endl;
-
-    std::cout << std::string(s2) << std::endl;
-    const String m = "abacaba";
-    std::cout << m[1] << std::endl;
-    String n = "mmmm";
-
-    String nn = n;
-    (void)nn;
-    std::cout << std::string(n) << std::endl;
-
-
+    String c, a("abc");
+String b = a; // в памяти хранится "abc" в одном экземпляре
+c = a;
+b += "aaa"; // для b создался новый "массив" символов.
+std::cout << "zh" << '\n';
+//c[1] = 'f'; // a не изменилось
+//std::cout << std::string(a);
     return 0;
 }
